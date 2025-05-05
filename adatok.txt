@@ -1,0 +1,152 @@
+import abc
+from datetime import datetime
+from typing import List, Dict
+
+class Jarat(abc.ABC):
+    def __init__(self, jaratszam: str, celallomas: str, indulasi_ido: datetime, jegyar: float):
+        self.jaratszam = jaratszam
+        self.celallomas = celallomas
+        self.indulasi_ido = indulasi_ido
+        self.jegyar = jegyar
+    
+    @abc.abstractmethod
+    def jegy_info(self) -> str:
+        pass
+
+class BelfoldiJarat(Jarat):
+    def __init__(self, jaratszam: str, celallomas: str, indulasi_ido: datetime, jegyar: float):
+        super().__init__(jaratszam, celallomas, indulasi_ido, jegyar)
+    
+    def jegy_info(self) -> str:
+        return f"Belföldi járat {self.jaratszam} célállomás: {self.celallomas}, indul: {self.indulasi_ido}, ár: {self.jegyar} Ft"
+
+class NemzetkoziJarat(Jarat):
+    def __init__(self, jaratszam: str, celallomas: str, indulasi_ido: datetime, jegyar: float):
+        super().__init__(jaratszam, celallomas, indulasi_ido, jegyar)
+    
+    def jegy_info(self) -> str:
+        return f"Nemzetközi járat {self.jaratszam} célállomás: {self.celallomas}, indul: {self.indulasi_ido}, ár: {self.jegyar} Ft"
+
+class Legitarsasag:
+    def __init__(self, nev: str):
+        self.nev = nev
+        self.jaratok: List[Jarat] = []
+    
+    def jarat_hozzaad(self, jarat: Jarat):
+        self.jaratok.append(jarat)
+    
+    def jarat_keres(self, jaratszam: str) -> Jarat:
+        for jarat in self.jaratok:
+            if jarat.jaratszam == jaratszam:
+                return jarat
+        return None
+
+class JegyFoglalas:
+    def __init__(self, jarat: Jarat, utas_neve: str, foglalas_idopontja: datetime):
+        self.jarat = jarat
+        self.utas_neve = utas_neve
+        self.foglalas_idopontja = foglalas_idopontja
+        self.foglalas_ara = jarat.jegyar
+        self.foglalas_szam = f"{jarat.jaratszam}_{utas_neve}_{foglalas_idopontja.timestamp()}"
+
+class JegyFoglaloRendszer:
+    def __init__(self):
+        self.legitarsasag = Legitarsasag("Python Airlines")
+        self.foglalasok: Dict[str, JegyFoglalas] = {}
+        self.initial_setup()
+    
+    def initial_setup(self):
+        # Add some flights
+        belfoldi1 = BelfoldiJarat("PA101", "Budapest", datetime(2025, 6, 1, 10, 30), 15000)
+        belfoldi2 = BelfoldiJarat("PA102", "Debrecen", datetime(2025, 6, 2, 12, 45), 20000)
+        nemzetkozi1 = NemzetkoziJarat("PA201", "London", datetime(2025, 6, 1, 8, 15), 50000)
+        nemzetkozi2 = NemzetkoziJarat("PA202", "New York", datetime(2025, 6, 3, 14, 20), 120000)
+        
+        self.legitarsasag.jarat_hozzaad(belfoldi1)
+        self.legitarsasag.jarat_hozzaad(belfoldi2)
+        self.legitarsasag.jarat_hozzaad(nemzetkozi1)
+        self.legitarsasag.jarat_hozzaad(nemzetkozi2)
+        
+        # Add some reservations
+        self.jegy_foglalas("PA101", "Kovács János", datetime(2025, 5, 1))
+        self.jegy_foglalas("PA101", "Nagy Anna", datetime(2025, 5, 2))
+        self.jegy_foglalas("PA102", "Kiss Péter", datetime(2025, 5, 3))
+        self.jegy_foglalas("PA201", "Smith John", datetime(2025, 5, 4))
+        self.jegy_foglalas("PA202", "Taylor Swift", datetime(2025, 5, 5))
+        self.jegy_foglalas("PA202", "John Doe", datetime(2025, 5, 6))
+    
+    def jegy_foglalas(self, jaratszam: str, utas_neve: str, foglalas_idopontja: datetime) -> JegyFoglalas:
+        jarat = self.legitarsasag.jarat_keres(jaratszam)
+        if not jarat:
+            raise ValueError("Nem létező járat!")
+        
+        if foglalas_idopontja > jarat.indulasi_ido:
+            raise ValueError("A foglalás időpontja nem lehet későbbi, mint a járat indulási ideje!")
+        
+        foglalas = JegyFoglalas(jarat, utas_neve, foglalas_idopontja)
+        self.foglalasok[foglalas.foglalas_szam] = foglalas
+        return foglalas
+    
+    def foglalas_lemondas(self, foglalas_szam: str):
+        if foglalas_szam not in self.foglalasok:
+            raise ValueError("Nem létező foglalás!")
+        del self.foglalasok[foglalas_szam]
+    
+    def foglalasok_listazasa(self) -> List[JegyFoglalas]:
+        return list(self.foglalasok.values())
+
+def main():
+    rendszer = JegyFoglaloRendszer()
+    
+    while True:
+        print("\nPython Airlines - Jegyfoglalási Rendszer")
+        print("1. Járatok listázása")
+        print("2. Jegy foglalása")
+        print("3. Foglalás lemondása")
+        print("4. Foglalások listázása")
+        print("5. Kilépés")
+        
+        valasztas = input("Válasszon egy menüpontot (1-5): ")
+        
+        if valasztas == "1":
+            print("\nElérhető járatok:")
+            for jarat in rendszer.legitarsasag.jaratok:
+                print(jarat.jegy_info())
+        
+        elif valasztas == "2":
+            jaratszam = input("Járatszám: ")
+            utas_neve = input("Utas neve: ")
+            try:
+                foglalas = rendszer.jegy_foglalas(jaratszam, utas_neve, datetime.now())
+                print(f"Sikeres foglalás! Foglalás száma: {foglalas.foglalas_szam}, Ár: {foglalas.foglalas_ara} Ft")
+            except ValueError as e:
+                print(f"Hiba: {e}")
+        
+        elif valasztas == "3":
+            foglalas_szam = input("Foglalás száma: ")
+            try:
+                rendszer.foglalas_lemondas(foglalas_szam)
+                print("Foglalás sikeresen törölve!")
+            except ValueError as e:
+                print(f"Hiba: {e}")
+        
+        elif valasztas == "4":
+            print("\nAktuális foglalások:")
+            for foglalas in rendszer.foglalasok_listazasa():
+                print(f"Foglalás száma: {foglalas.foglalas_szam}, Utas: {foglalas.utas_neve}, "
+                      f"Járatszám: {foglalas.jarat.jaratszam}, Ár: {foglalas.foglalas_ara} Ft")
+        
+        elif valasztas == "5":
+            print("Kilépés...")
+            break
+        
+        else:
+            print("Érvénytelen választás!")
+
+if __name__ == "__main__":
+    main()
+
+
+Név: [Tellesz Benedek]
+Szak: [Gazdaság informatika]
+Neptun kód: [ACAP51]
